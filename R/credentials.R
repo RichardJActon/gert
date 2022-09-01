@@ -45,8 +45,14 @@ make_cred_cb <- function(password = askpass, verbose = TRUE){
     # Look for GITHUB_PAT variable
     if(retries < 2){
       github_pat <- Sys.getenv('GITHUB_PAT')
-      if(nchar(github_pat) > 0 && grepl('^https?://([^/]*@)?github.com', url)){
+      gitlab_pat <- Sys.getenv('GITLAB_PAT')
+      if(nchar(github_pat) > 0 && nchar(gitlab_pat) > 0) {
+        warning("GITHUB_PAT & GITLAB_PAT are set! Defaulting to GITHUB_PAT.\n Unset the variable to change this")
+      }
+      if(grepl('^https?://([^/]*@)?github.com', url)){
         return(c("git", github_pat))
+      } else if (nchar(gitlab_pat) > 0) {
+        return(c("git", gitlab_pat))
       }
     }
 
