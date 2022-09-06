@@ -29,11 +29,11 @@ make_key_cb <- function(ssh_key = NULL, host = NULL, password = askpass){
 }
 
 #' @importFrom credentials git_credential_ask
-make_cred_cb <- function(password = askpass, verbose = TRUE){
+make_cred_cb <- function(password = askpass, verbose = TRUE, allow_custom_domains = FALSE){
   if(!is.character(password) && !is.function(password)){
     stop("Password parameter must be string or callback function")
   }
-  function(url, username, retries){
+  function(url, username, retries, allow_custom_domains = allow_custom_domains){
     # Case of hardcoded (string) password
     if(is.character(password)){
       if(!length(username) || is.na(username)){
@@ -44,16 +44,46 @@ make_cred_cb <- function(password = askpass, verbose = TRUE){
 
     # Look for GITHUB_PAT variable
     if(retries < 2){
-      github_pat <- Sys.getenv('GITHUB_PAT')
-      gitlab_pat <- Sys.getenv('GITLAB_PAT')
-      if(nchar(github_pat) > 0 && nchar(gitlab_pat) > 0) {
-        warning("GITHUB_PAT & GITLAB_PAT are set!\nUsing url to determine which to use")
-      }
-      if(nchar(github_pat) > 0 && grepl('^https?://([^/]*@)?github.com', url)){
-        return(c("git", github_pat))
-      }
-      if (nchar(gitlab_pat) > 0 && grepl('^https?://([^/]*@)?gitlab.com', url)) {
-        return(c("git", gitlab_pat))
+      github_pat   <- Sys.getenv('GITHUB_PAT')
+      github_pat_l <- nchar(github_pat) > 0
+      github_url_l <- grepl('^https?://([^/]*@)?github.com', url)
+      gitlab_pat   <- Sys.getenv('GITLAB_PAT')
+      gitlab_pat_l <- nchar(gitlab_pat) > 0
+      gitlab_url_l <- grepl('^https?://([^/]*@)?gitlab.com', url)
+      if(allow_custom_domains == FALSE) {
+        if(github_pat_l && gitlab_pat_l) {
+          warning("GITHUB_PAT & GITLAB_PAT are both set!\nUsing url to determine which to use")
+        }
+        if(github_pat_l && github_url_l){
+          return(c("git", github_pat))
+        }
+        if(github_pat_l && !github_url_l) {
+          stop(paste0("Github PAT detected but url is not a github.com url\n",
+            "set `allow_custom_domains == TRUE` to bypass github url check\n",
+            "BE SURE TO USE THE CORRECT URL OR YOU COULD LEAK YOUR PAT!!!"
+          ))
+        }
+        if (gitlab_pat_l && gitlab_url_l) {
+          return(c("git", gitlab_pat))
+        }
+        if(gitlab_pat_l && !gitlab_url_l) {
+          stop(paste0("Gitlab PAT detected but url is not a gitlab.com url\n",
+            "set `allow_custom_domains == TRUE` to bypass gitlab url check\n",
+            "BE SURE TO USE THE CORRECT URL OR YOU COULD LEAK YOUR PAT!!!"
+          ))
+        }
+      } else {
+        if(github_pat_l && gitlab_pat_l) {
+          stop(paste0("GITHUB_PAT & GITLAB_PAT are both set!\n",
+            "Cannot determine which to use with a custom URL\n",
+            "please set only one"))
+        }
+        if(github_pat_l) {
+          return(c("git", github_pat))
+        }
+        if(gitlab_pat_l) {
+          return(c("git", gitlab_pat))
+        }
       }
     }
 
